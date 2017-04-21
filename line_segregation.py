@@ -24,8 +24,12 @@ def text_segmentation(image):
     x_grad_sq /= np.max(x_grad_sq)
     y_grad_sq = np.square(np.gradient(image, axis=0))
     y_grad_sq /= np.max(y_grad_sq)
-    intensity = x_grad_sq+y_grad_sq
-    energy_by_row = np.sum(intensity, axis=1)
+    intensity = np.sqrt(x_grad_sq+y_grad_sq)
+    #visualize(intensity)
+
+    # How to deal with situations when the there are many i and j s in the sentence?
+    energy_by_row = [len(row[row>0.2])/float(width) for row in intensity]
+
     # Compute doldrums
     doldrums = []
     temp = []
@@ -38,9 +42,11 @@ def text_segmentation(image):
                 temp = []
     if len(temp) > 0:
         doldrums.append(np.average(temp))
-    #for line in doldrums: image[int(line)] = np.asarray([[0.0] * width])
-    #visualize(image)
+    print(doldrums)
 
+    for line in doldrums: image[int(line)] = np.asarray([[0.0] * width])
+    visualize(image)
+    '''
     # Compute margins (hard margins)
     all_margins = []
     for line in doldrums:
@@ -58,6 +64,12 @@ def text_segmentation(image):
     #while len(all_margins) > 0:
     #io.imsave(fname='test_{}_{}'.format(all_margins[0], all_margins[1]), arr=image[14:73])
     return all_margins
+    '''
+def image_padding(image_set):
+    # Compute for maximum padding
+    # Apply paddings
+    pass
+
 
 
 def visualize(image):
@@ -65,7 +77,7 @@ def visualize(image):
     plt.show()
 
 if __name__ == '__main__':
-    path = './test.png'
+    path = './from_ceyer.png'
     image = load_img_from(path)
     text_segmentation(image)
 
