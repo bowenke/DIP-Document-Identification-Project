@@ -1,57 +1,71 @@
-import cv2
 import numpy as np
+
+from cv2 import ximgproc
+
 from numpy import random
+import skimage
 from skimage import io
-from skimage import img_as_float
 from skimage import color
+from skimage import filters
+
 from itertools import product
 from matplotlib import pyplot as plt
 
 
 def load_img_from(path):
-    # Will deal with stuff like cropping
-    return color.rgb2gray(img_as_float(io.imread(path)))
+    image = io.imread(fname=path, as_grey=True)
+    return image
 
 
 def text_segmentation(image):
-    x_grad_sq = np.sqrt((np.gradient(image, axis=0) ** 2))
-    y_grad_sq = np.sqrt((np.gradient(image, axis=1) ** 2))
-    intensity = x_grad_sq + y_grad_sq
-    height, width = intensity.shape
-    mean_intensity = np.sum(intensity, axis=0)
-    print()
+    height, width = image.shape
+    print(image.shape)
+    x_grad_sq = np.square(np.gradient(image, axis=1))
+    x_grad_sq /= np.max(x_grad_sq)
+    y_grad_sq = np.square(np.gradient(image, axis=0))
+    y_grad_sq /= np.max(y_grad_sq)
+    intensity = x_grad_sq+y_grad_sq
+    energy_by_row = np.sum(intensity, axis=1)
+    # Compute doldrums
+    doldrums = []
+    temp = []
+    for index, energy in enumerate(energy_by_row):
+        if energy <= 0:
+            temp.append(index)
+        else:
+            if len(temp) > 0:
+                doldrums.append(int(np.average(temp)))
+                temp = []
+    if len(temp) > 0:
+        doldrums.append(np.average(temp))
+    #for line in doldrums: image[int(line)] = np.asarray([[0.0] * width])
+    #visualize(image)
 
-    # Compute for doldrums
-    #doldrums = []
-    #for mean in mean_intensity:
-
-
-
-
-
-    visualize(intensity)
+    # Compute margins (hard margins)
+    all_margins = []
+    for line in doldrums:
+        margins = [line, line]
+        while int(margins[0]-1) >= 0 or int(margins[1]+1) < height:
+            if np.sum(intensity[int(margins[0]-1)]) <= 0: margins[0] -= 1
+            else: break
+            if np.sum(intensity[int(margins[1]+1)]) <= 0: margins[1] += 1
+            else: break
+        all_margins = all_margins + margins
+    #for line in all_margins: image[int(line)] = np.asarray([[0.0] * width])
+    del all_margins[0]
+    del all_margins[-1]
+    print(all_margins)
+    #while len(all_margins) > 0:
+    #io.imsave(fname='test_{}_{}'.format(all_margins[0], all_margins[1]), arr=image[14:73])
+    return all_margins
 
 
 def visualize(image):
     plt.imshow(image, cmap='gray')
     plt.show()
 
-
-def ransac_text_segmentation(image):
-    y_grad = np.abs(np.gradient(image, axis=1))
-    height, width = y_grad.shape
-    random.seed(0)
-    random.rand()
-
-
-    #io.imshow(y_grad)
-    #io.show()
-
-    pass
-
-
 if __name__ == '__main__':
-    path = './c_w.png'
+    path = './test.png'
     image = load_img_from(path)
     text_segmentation(image)
 
