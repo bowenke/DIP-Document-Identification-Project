@@ -2,7 +2,6 @@ import numpy as np
 
 from cv2 import ximgproc
 
-from numpy import random
 import skimage
 from skimage import io
 from skimage import color
@@ -17,18 +16,23 @@ def load_img_from(path):
     return image
 
 
-def text_segmentation(image):
+def line_segmentation(image, save_lines=False, visualize_lines=False):
     height, width = image.shape
+    inten_thres = 0.1
+    text_thres = 0.1
     print(image.shape)
+
+    # Compute intensity and dismiss lightly tinted pixels are noises
     x_grad_sq = np.square(np.gradient(image, axis=1))
     x_grad_sq /= np.max(x_grad_sq)
     y_grad_sq = np.square(np.gradient(image, axis=0))
     y_grad_sq /= np.max(y_grad_sq)
     intensity = np.sqrt(x_grad_sq+y_grad_sq)
-    #visualize(intensity)
+    for i, j in product(range(height), range(width)):
+        if intensity[i][j] < 0.2: intensity[i][j] = 0
 
-    # How to deal with situations when the there are many i and j s in the sentence?
-    energy_by_row = [len(row[row>0.2])/float(width) for row in intensity]
+    # Percentage of how in a row are there pixels have intensity greater than 0.3
+    energy_by_row = [len(row[row>inten_thres])/float(width) for row in intensity]
 
     # Compute doldrums
     doldrums = []
@@ -44,9 +48,9 @@ def text_segmentation(image):
         doldrums.append(np.average(temp))
     print(doldrums)
 
-    for line in doldrums: image[int(line)] = np.asarray([[0.0] * width])
-    visualize(image)
-    '''
+    #for line in doldrums: image[int(line)] = np.asarray([[0.0] * width])
+    #visualize(image)
+
     # Compute margins (hard margins)
     all_margins = []
     for line in doldrums:
@@ -57,18 +61,28 @@ def text_segmentation(image):
             if np.sum(intensity[int(margins[1]+1)]) <= 0: margins[1] += 1
             else: break
         all_margins = all_margins + margins
-    #for line in all_margins: image[int(line)] = np.asarray([[0.0] * width])
+    #print(doldrums)
+    #print(all_margins)
+
     del all_margins[0]
     del all_margins[-1]
-    print(all_margins)
-    #while len(all_margins) > 0:
-    #io.imsave(fname='test_{}_{}'.format(all_margins[0], all_margins[1]), arr=image[14:73])
+    #if save_lines:
+    #    for pair in all_margins:
+    if visualize_lines:
+        display = np.copy(image)
+        for line in all_margins: display[int(line)] = np.asarray([[0.0] * width])
+        visualize(display)
+
     return all_margins
-    '''
+
 def image_padding(image_set):
-    # Compute for maximum padding
-    # Apply paddings
-    pass
+    max_width = -np.inf
+    max_height = -np.inf
+    for image in image_set:
+        height, width = image.shape
+        if max_width < width: max_width = width
+        if max_height < height: max_height = height
+
 
 
 
@@ -79,6 +93,6 @@ def visualize(image):
 if __name__ == '__main__':
     path = './from_ceyer.png'
     image = load_img_from(path)
-    text_segmentation(image)
+    line_segmentation(image)
 
 
