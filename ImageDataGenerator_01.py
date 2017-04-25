@@ -1,3 +1,4 @@
+# ImageDataGenerator documentation: https://keras.io/preprocessing/image/
 import sys
 import keras.preprocessing.image as ppimage
 
