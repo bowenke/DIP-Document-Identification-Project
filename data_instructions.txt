@@ -1,0 +1,23 @@
+#--- lines.txt ---------------------------------------------------------------#
+#
+# iam database line information
+#
+# format: a01-000u-00 ok 154 19 408 746 1663 91 A|MOVE|to|stop|Mr.|Gaitskell|from
+#
+#     a01-000u-00  -> line id for form a01-000u
+#     ok              -> result of word segmentation
+#                            ok: line is correctly segmented
+#                            err: segmentation of line has one or more errors
+#
+#                        notice: if the line could not be properly segmented
+#                                the transcription and extraction of the whole
+#                                line should not be affected negatively
+#
+#     154             -> graylevel to binarize line
+#     19              -> number of components for this line
+#     408 746 1663 91 -> bounding box around this line in x,y,w,h format
+#
+#     A|MOVE|to|stop|Mr.|Gaitskell|from
+#                     -> transcription for this line. word tokens are separated
+#                        by the character |
+#
