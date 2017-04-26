@@ -15,8 +15,7 @@ def load_img_from(path):
     image = io.imread(fname=path, as_grey=True)
     return image
 
-
-def line_segmentation(image, save_lines=False, visualize_lines=False):
+def line_segmentation(image, save=False, visualize_lines=False):
     height, width = image.shape
     inten_thres = 0.1
     text_thres = 0.1
@@ -34,7 +33,7 @@ def line_segmentation(image, save_lines=False, visualize_lines=False):
     # Percentage of how in a row are there pixels have intensity greater than 0.3
     energy_by_row = [len(row[row>inten_thres])/float(width) for row in intensity]
 
-    # Compute doldrums
+    # Compute horizontal doldrums
     doldrums = []
     temp = []
     for index, energy in enumerate(energy_by_row):
@@ -50,7 +49,7 @@ def line_segmentation(image, save_lines=False, visualize_lines=False):
 
     #for line in doldrums: image[int(line)] = np.asarray([[0.0] * width])
     #visualize(image)
-
+    #return
     # Compute margins (hard margins)
     all_margins = []
     for line in doldrums:
@@ -75,16 +74,6 @@ def line_segmentation(image, save_lines=False, visualize_lines=False):
 
     return all_margins
 
-def image_padding(image_set):
-    max_width = -np.inf
-    max_height = -np.inf
-    for image in image_set:
-        height, width = image.shape
-        if max_width < width: max_width = width
-        if max_height < height: max_height = height
-
-
-
 
 def visualize(image):
     plt.imshow(image, cmap='gray')
@@ -93,6 +82,6 @@ def visualize(image):
 if __name__ == '__main__':
     path = './from_ceyer.png'
     image = load_img_from(path)
-    line_segmentation(image)
+    line_segmentation(image, visualize_lines=True)
 
 
