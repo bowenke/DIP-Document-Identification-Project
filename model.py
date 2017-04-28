@@ -61,10 +61,8 @@ def handwriting_identifier(num_of_class=-1):
     enc_dec.add(Dense(num_of_class))
     enc_dec.add(Activation('softmax'))
 
-    _model = Model(inputs=conv_net.input, outputs=enc_dec.output)
+    _model = Model(inputs=conv_net.input, outputs=enc_dec(conv_net.output))
     return _model
-
-
 
 if __name__ == '__main__':
     model = handwriting_identifier()
