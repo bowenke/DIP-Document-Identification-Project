@@ -1,4 +1,3 @@
-import pickle
 import _collections as col
 import numpy as np
 import time
@@ -64,7 +63,7 @@ def full_model(num_of_class=-1):
     enc_dec = Sequential()
     # Encoder
     enc_dec.add(Flatten())
-    lstm = LSTM(32, activation='relu')
+    lstm = LSTM(32, activation='relu', input_shape=(None, None, 1))
     enc_dec.add(Bidirectional(lstm))
 
     # Decoder
