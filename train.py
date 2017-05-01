@@ -3,15 +3,15 @@ import numpy as np
 from keras.layers import Conv2D, MaxPooling2D, LSTM, Bidirectional, Dense, BatchNormalization, Dropout, \
                          Activation, Flatten, RepeatVector, TimeDistributed
 from keras.layers.core import Reshape
-from keras.models import Sequential, Model
+from keras.models import Sequential
 from keras.preprocessing import sequence as seq
-from keras.optimizers import Adadelta
+from keras.optimizers import Adadelta, RMSprop
 from keras.losses import categorical_crossentropy
 from skimage import io
 # (342, 2270, 1)
 
 
-def basic_model(num_of_class=-1, input_shape=(342, 2270, 1)):
+def basic_model(num_of_class=81, input_shape=(342, 2270, 1), pad_len=95):
     model = Sequential()
     print("Input_shape: {}".format(input_shape))
     model.add(Conv2D(64,
@@ -39,13 +39,42 @@ def basic_model(num_of_class=-1, input_shape=(342, 2270, 1)):
     print("Reshape: {}".format(model.output_shape))
     model.add(Bidirectional(LSTM(64, activation='relu'), merge_mode='concat'))
     print("Bidirectional: {}".format(model.output_shape))
-    model.add(RepeatVector(95))
+    #model.add(Dense())
+    model.add(RepeatVector(pad_len))
     print("RepeatVector: {}".format(model.output_shape))
-    model.add(LSTM(95, activation='relu', return_sequences=True))
-    #print("LSTM: {}".format(model.output_shape))
-    #model.add(Activation('softmax'))
-    model.add(TimeDistributed(Dense(81, activation='softmax')))
-    print("TimeDistributedDense: {}".format(model.output_shape))
+    model.add(LSTM(num_of_class, activation='softmax', return_sequences=True))
+    #model.add(TimeDistributed(Dense(num_of_class, activation='softmax')))
+    #print("TimeDistributedDense: {}".format(model.output_shape))
+    return model
+
+
+def seq2seq_model(num_of_class=81, input_shape=(342, 2270, 1), pad_len=95):
+    model = Sequential()
+    print("Input_shape: {}".format(input_shape))
+    model.add(Conv2D(64,
+                     input_shape=input_shape,
+                     data_format='channels_last',
+                     kernel_size=(3, 3),
+                     activation='relu',
+                     ))
+    print("From Conv2D-1: {}".format(model.output_shape))
+    model.add(BatchNormalization())
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    print("From MaxP-1: {}".format(model.output_shape))
+    model.add(Conv2D(64,
+                     kernel_size=(3, 3),
+                     activation='relu',
+                     ))
+    print("From Conv2D-2: {}".format(model.output_shape))
+    model.add(BatchNormalization())
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    print("From MaxP-2: {}".format(model.output_shape))
+    model.add(Dense(1, activation='relu'))
+    print("Dense-1: {}".format(model.output_shape))
+    model.add(Flatten())
+    model.add(Reshape((21, 2264,)))
+    print("Reshape: {}".format(model.output_shape))
+
     return model
 
 
@@ -153,25 +182,36 @@ def preprocess_images(paths):
 
 # Invoke this to build and train the model
 def train():
+
     paths, labels, dic = preprocess_labels()
     Xtrain, Ytrain, Xtest, Ytest = split_dataset_rand(paths, labels)
-    print(Xtrain.shape)
-    print(Ytrain.shape)
-    batch_size = 2
-    epoch = 2
 
-    model = basic_model(num_of_class=81)
+    batch_size = 4
+    epoch = 2
+    input_shape = Xtrain[0].shape
+    pad_len = len(Ytrain[0])
+    num_of_class = len(dic)
+
+
+    model = basic_model(num_of_class=num_of_class, input_shape=input_shape, pad_len=pad_len)
+
+    #model = basic_model()
     print("Compiling...")
-    model.compile(optimizer=Adadelta(),
+    model.compile(optimizer=RMSprop(),
                   loss=categorical_crossentropy,
                   metrics=['accuracy'])
 
     print("Training...")
-    model.fit(x=Xtrain,
-              y=Ytrain,
-              verbose=1,
-              batch_size=batch_size,
-              epochs=epoch)
+
+    # Manual Training
+    for x, y in zip(Xtrain, Ytrain):
+        x = x[np.newaxis, :, :, :]
+        y = y[np.newaxis, :, :]
+        model.fit(x=x,
+                  y=y,
+                  verbose=1,
+                  batch_size=1,
+                  epochs=epoch)
     model.evaluate(x=Xtest,
                    y=Ytest)
 
