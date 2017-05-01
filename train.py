@@ -1,8 +1,7 @@
 import _collections as col
 import numpy as np
-import time
-from keras.layers import Conv2D, MaxPooling2D, LSTM, Bidirectional, Dense, Flatten, GRU, \
-        BatchNormalization, Dropout, Activation, Permute, Flatten, RepeatVector
+from keras.layers import Conv2D, MaxPooling2D, LSTM, Bidirectional, Dense, BatchNormalization, Dropout, \
+                         Activation, Flatten, RepeatVector, TimeDistributed
 from keras.layers.core import Reshape
 from keras.models import Sequential, Model
 from keras.preprocessing import sequence as seq
@@ -14,44 +13,44 @@ from skimage import io
 
 def basic_model(num_of_class=-1, input_shape=(342, 2270, 1)):
     model = Sequential()
-    #print("Input_shape: {}".format(input_shape))
+    print("Input_shape: {}".format(input_shape))
     model.add(Conv2D(64,
                      input_shape=input_shape,
                      data_format='channels_last',
-                     kernel_size=(3,3),
+                     kernel_size=(3, 3),
                      activation='relu',
                      ))
-    #print("From Conv2D-1: {}".format(model.output_shape))
+    print("From Conv2D-1: {}".format(model.output_shape))
     model.add(BatchNormalization())
-    model.add(MaxPooling2D(pool_size=(2,2)))
-    #print("From MaxP-1: {}".format(model.output_shape))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    print("From MaxP-1: {}".format(model.output_shape))
     model.add(Conv2D(64,
                      kernel_size=(3, 3),
                      activation='relu',
                      ))
-    #print("From Conv2D-2: {}".format(model.output_shape))
+    print("From Conv2D-2: {}".format(model.output_shape))
     model.add(BatchNormalization())
     model.add(MaxPooling2D(pool_size=(2, 2)))
-    #print("From MaxP-2: {}".format(model.output_shape))
+    print("From MaxP-2: {}".format(model.output_shape))
     model.add(Dense(1, activation='relu'))
-    #print("Activation: {}".format(model.output_shape))
+    print("Dense-1: {}".format(model.output_shape))
     model.add(Flatten())
     model.add(Reshape((21, 2264,)))
-    #print("Reshape: {}".format(model.output_shape))
-    model.add(Bidirectional(LSTM(64,
-                                 activation='relu'),
-                            merge_mode='concat'))
+    print("Reshape: {}".format(model.output_shape))
+    model.add(Bidirectional(LSTM(64, activation='relu'), merge_mode='concat'))
     print("Bidirectional: {}".format(model.output_shape))
-    model.add(RepeatVector(model.output_shape[1]))
+    model.add(RepeatVector(95))
     print("RepeatVector: {}".format(model.output_shape))
-    model.add(LSTM(64,
-                   activation='relu'))
-    model.add(Dense(num_of_class, activation='softmax'))
+    model.add(LSTM(95, activation='relu', return_sequences=True))
+    #print("LSTM: {}".format(model.output_shape))
+    #model.add(Activation('softmax'))
+    model.add(TimeDistributed(Dense(81, activation='softmax')))
+    print("TimeDistributedDense: {}".format(model.output_shape))
     return model
 
 
 # Split data into training, testing and validation sets and load them
-def split_dataset_rand(paths, labels, train_prop=0.85, test_prop=0.15, val = False):
+def split_dataset_rand(paths, labels, train_prop=0.85, test_prop=0.15, val=False):
     print("Preparing training, testing and validation datasets...")
     if len(paths) != len(labels):
         print("Fatal: data missing and not aligned")
@@ -156,7 +155,9 @@ def preprocess_images(paths):
 def train():
     paths, labels, dic = preprocess_labels()
     Xtrain, Ytrain, Xtest, Ytest = split_dataset_rand(paths, labels)
-    batch_size = 1
+    print(Xtrain.shape)
+    print(Ytrain.shape)
+    batch_size = 2
     epoch = 2
 
     model = basic_model(num_of_class=81)
