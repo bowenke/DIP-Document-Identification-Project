@@ -1,105 +1,84 @@
 import _collections as col
 import numpy as np
 import time
-from keras.layers import Conv2D, MaxPooling2D, LSTM, Bidirectional, Dense, Flatten, BatchNormalization, Dropout, Activation
+from keras.layers import Conv2D, MaxPooling2D, LSTM, Bidirectional, Dense, Flatten, GRU, \
+        BatchNormalization, Dropout, Activation, Permute, Flatten, RepeatVector
+from keras.layers.core import Reshape
 from keras.models import Sequential, Model
 from keras.preprocessing import sequence as seq
 from keras.optimizers import Adadelta
 from keras.losses import categorical_crossentropy
 from skimage import io
+# (342, 2270, 1)
 
 
-def reduced_model():
-    pass
-
-
-# Build and return a large, full model with ConvNet and attention-based RNN enc-dec
-def full_model(num_of_class=-1):
-    print('Building model...')
-
-    conv_net = Sequential()
-
-    # layer 1
-    conv_net.add(Conv2D(256,
-                        data_format='channels_last',
-                        input_shape=(None, None, 1),
-                        kernel_size=(3, 3),
-                        activation='relu',
-                        ))
-    conv_net.add(BatchNormalization())
-
-    # layer 2
-    conv_net.add(Conv2D(256,
-                        kernel_size=(3, 3),
-                        activation='relu'))
-    conv_net.add(BatchNormalization())
-    conv_net.add(MaxPooling2D(pool_size=(2, 2)))
-    conv_net.add(Dropout(0.25))
-
-    # layer 3
-    conv_net.add(Conv2D(64,
-                        kernel_size=(3, 3),
-                        activation='relu'))
-    conv_net.add(BatchNormalization())
-    conv_net.add(MaxPooling2D(pool_size=(2, 2)))
-    conv_net.add(Dropout(0.25))
-
-    # layer 4
-    conv_net.add(Conv2D(64,
-                        kernel_size=(3, 3),
-                        activation='relu'))
-    conv_net.add(BatchNormalization())
-    conv_net.add(MaxPooling2D(pool_size=(2, 2)))
-    conv_net.add(Dropout(0.25))
-
-    # layer 5
-    conv_net.add(Conv2D(32,
-                        kernel_size=(3, 3),
-                        activation='relu'))
-    conv_net.add(BatchNormalization())
-    conv_net.add(MaxPooling2D(pool_size=(2, 2)))
-    conv_net.add(Dropout(0.25))
-
-    enc_dec = Sequential()
-    # Encoder
-    enc_dec.add(Flatten())
-    lstm = LSTM(32, activation='relu', input_shape=(None, None, 1))
-    enc_dec.add(Bidirectional(lstm))
-
-    # Decoder
-    enc_dec.add(LSTM(256, activation='relu'))
-    enc_dec.add(Dense(num_of_class))
-    enc_dec.add(Activation('softmax'))
-
-    _model = Model(inputs=conv_net.input, outputs=enc_dec(conv_net.output))
-    return _model
-
+def reduced_model(num_of_class=-1, input_shape=(342, 2270, 1)):
+    model = Sequential()
+    print("Input_shape: {}".format(input_shape))
+    model.add(Conv2D(64,
+                     input_shape=input_shape,
+                     data_format='channels_last',
+                     kernel_size=(3,3),
+                     activation='relu',
+                     ))
+    print("From Conv2D-1: {}".format(model.output_shape))
+    model.add(BatchNormalization())
+    model.add(MaxPooling2D(pool_size=(2,2)))
+    print("From MaxP-1: {}".format(model.output_shape))
+    model.add(Conv2D(64,
+                     kernel_size=(3, 3),
+                     activation='relu',
+                     ))
+    print("From Conv2D-2: {}".format(model.output_shape))
+    model.add(BatchNormalization())
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    print("From MaxP-2: {}".format(model.output_shape))
+    model.add(Dense(1))
+    model.add(Activation('relu'))
+    print("Activation: {}".format(model.output_shape))
+    model.add(Flatten())
+    model.add(Reshape((21, 2264,)))
+    print("Reshape: {}".format(model.output_shape))
+    model.add(Bidirectional(LSTM(64,
+                                 activation='relu'),
+                            merge_mode='concat'))
+    print("Bidirectional: {}".format(model.output_shape))
+    model.add(RepeatVector(model.output_shape[1]))
+    print("RepeatVector: {}".format(model.output_shape))
+    model.add(LSTM(64,
+                   activation='relu'))
+    model.add(Dense(num_of_class))
+    model.add(Activation("softmax"))
+    return model
 
 # Split data into training, testing and validation sets and load them
-def split_dataset_rand(paths, labels, train_prop=0.85, test_prop=0.1):
+def split_dataset_rand(paths, labels, train_prop=0.2, test_prop=0.1, val = False):
     print("Preparing training, testing and validation datasets...")
     if len(paths) != len(labels):
         print("Fatal: data missing and not aligned")
     indices = np.arange(start=0, stop=len(paths), dtype=np.int64)
     np.random.shuffle(indices)
     leng = len(paths)
-    train_size = int(0.85*leng)
-    test_size = int(0.1*leng)
+    train_size = int(train_prop*leng)
+    test_size = int(test_prop*leng)
     training_indices = indices[:train_size]
     testing_indices = indices[train_size:train_size+test_size]
     validation_indices = indices[train_size+test_size:]
-
-    Xtrain = preprocess_images([paths[i] for i in training_indices])
-    Ytrain = [labels[i] for i in training_indices]
-    Xtest = preprocess_images([paths[i] for i in testing_indices])
-    Ytest = [labels[i] for i in testing_indices]
+    X = preprocess_images(paths)
+    Y = labels
+    Xtrain = [X[i] for i in training_indices]
+    Ytrain = [Y[i] for i in training_indices]
+    Xtest = [X[i] for i in testing_indices]
+    Ytest = [Y[i] for i in testing_indices]
     Xval = None
     Yval = None
-    if leng > train_size+test_size:
+    if leng > train_size+test_size and val:
         Xval = preprocess_images([paths[i] for i in validation_indices])
         Yval = [labels[i] for i in validation_indices]
-    print("Training Set: {} | Testing Set: {} | Validation Set: {}".format(train_size, test_size, leng-(train_size+test_size)))
-    return Xtrain, Ytrain, Xtest, Ytest, Xval, Yval
+        print("Training Set: {} | Testing Set: {} | Validation Set: {}".format(train_size, test_size, leng-(train_size+test_size)))
+        return Xtrain, Ytrain, Xtest, Ytest, Xval, Yval
+    else:
+        return Xtrain, Ytrain, Xtest, Ytest
 
 
 # Read dataset info script and generate labels and paths to images
@@ -147,7 +126,7 @@ def preprocess_labels():
 
 
 # Load and pad images with regard to the set of paths
-def preprocess_images(paths, test = False):
+def preprocess_images(paths):
     print("Loading images...")
     lines = './lines'
     images = []
@@ -170,30 +149,48 @@ def preprocess_images(paths, test = False):
                            mode='constant',
                            pad_width=[(0, max_height-height), (0, max_width-width)],
                            constant_values=[0])
+        images[i] = images[i][:, :, np.newaxis]
     return images
 
 
 # Invoke this to build and train the model
 def train():
+    #paths, labels, dic = preprocess_labels()
+    #Xtrain, Ytrain, Xtest, Ytest = split_dataset_rand(paths, labels)
     batch_size = 16
     epoch = 2
-    paths, labels, dic = preprocess_labels()
-    Xtrain, Ytrain, Xtest, Ytest, Xval, Yval = split_dataset_rand(paths, labels)
-    model = full_model(num_of_class=len(dic))
+
+    #input_shape = Xtrain[0].shape
+    #print(input_shape)
+
+    model = reduced_model(num_of_class=81)
     print("Compiling...")
     model.compile(optimizer=Adadelta(),
                   loss=categorical_crossentropy,
                   metrics=['accuracy'])
+    '''
     print("Training...")
-    model.fit(x=Xtrain,
-              y=Ytrain,
-              verbose=1,
-              batch_size=batch_size,
-              epochs=epoch)
+    train_size = len(Xtrain)
+    bundle_size = 64
+    start, end = 0, 1
+    iteration = int(train_size / bundle_size)
+    for i in range(iteration):
+        end += bundle_size
+        model.fit(x=Xtrain[start:end],
+                  y=Ytrain[start:end],
+                  verbose=1,
+                  batch_size=batch_size,
+                  epochs=epoch)
+    if end < train_size:
+        model.fit(x=Xtrain[end:],
+                  y=Ytrain[end:],
+                  verbose=1,
+                  batch_size=batch_size,
+                  epochs=epoch)
     model.evaluate(x=Xtest,
                    y=Ytest)
     model.save(filepath='./model.h5')
-
+    '''
 
 if __name__ == '__main__':
     #test = ['a01-000u-00', 'a01-000u-01', 'a01-000u-02', 'a01-000u-03', 'a01-000u-04']
