@@ -202,20 +202,27 @@ def train():
                   metrics=['accuracy'])
 
     print("Training...")
-
+    print(Xtrain.shape)
+    print(Ytrain.shape)
+    model.fit(x=Xtrain,
+              y=Ytrain,
+              verbose=1,
+              batch_size=1,
+              epochs=epoch)
     # Manual Training
-    for x, y in zip(Xtrain, Ytrain):
-        x = x[np.newaxis, :, :, :]
-        y = y[np.newaxis, :, :]
-        model.fit(x=x,
-                  y=y,
-                  verbose=1,
-                  batch_size=1,
-                  epochs=epoch)
+    #for x, y in zip(Xtrain, Ytrain):
+    #    x = x[np.newaxis, :, :, :]
+    #    y = y[np.newaxis, :, :]
+    #    model.fit(x=x,
+    #              y=y,
+    #              verbose=1,
+    #              batch_size=1,
+    #              epochs=epoch)
+    model.save(filepath='./model.h5')
     model.evaluate(x=Xtest,
                    y=Ytest)
 
-    model.save(filepath='./model.h5')
+
 
 
 if __name__ == '__main__':
