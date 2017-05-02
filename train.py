@@ -5,12 +5,13 @@ from keras.layers import Conv2D, MaxPooling2D, LSTM, Bidirectional, Dense, Batch
 from keras.layers.core import Reshape
 from keras.models import Sequential
 from keras.preprocessing import sequence as seq
-from keras.optimizers import Adadelta, RMSprop
+from keras.optimizers import RMSprop
 from keras.losses import categorical_crossentropy
 from skimage import io
 # (342, 2270, 1)
 
 
+# Baseline model with low accuracy, test and dev purpose
 def basic_model(num_of_class=81, input_shape=(342, 2270, 1), pad_len=95):
     model = Sequential()
     print("Input_shape: {}".format(input_shape))
@@ -23,6 +24,7 @@ def basic_model(num_of_class=81, input_shape=(342, 2270, 1), pad_len=95):
     print("From Conv2D-1: {}".format(model.output_shape))
     model.add(BatchNormalization())
     model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
     print("From MaxP-1: {}".format(model.output_shape))
     model.add(Conv2D(64,
                      kernel_size=(3, 3),
@@ -39,42 +41,9 @@ def basic_model(num_of_class=81, input_shape=(342, 2270, 1), pad_len=95):
     print("Reshape: {}".format(model.output_shape))
     model.add(Bidirectional(LSTM(64, activation='relu'), merge_mode='concat'))
     print("Bidirectional: {}".format(model.output_shape))
-    #model.add(Dense())
     model.add(RepeatVector(pad_len))
     print("RepeatVector: {}".format(model.output_shape))
     model.add(LSTM(num_of_class, activation='softmax', return_sequences=True))
-    #model.add(TimeDistributed(Dense(num_of_class, activation='softmax')))
-    #print("TimeDistributedDense: {}".format(model.output_shape))
-    return model
-
-
-def seq2seq_model(num_of_class=81, input_shape=(342, 2270, 1), pad_len=95):
-    model = Sequential()
-    print("Input_shape: {}".format(input_shape))
-    model.add(Conv2D(64,
-                     input_shape=input_shape,
-                     data_format='channels_last',
-                     kernel_size=(3, 3),
-                     activation='relu',
-                     ))
-    print("From Conv2D-1: {}".format(model.output_shape))
-    model.add(BatchNormalization())
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    print("From MaxP-1: {}".format(model.output_shape))
-    model.add(Conv2D(64,
-                     kernel_size=(3, 3),
-                     activation='relu',
-                     ))
-    print("From Conv2D-2: {}".format(model.output_shape))
-    model.add(BatchNormalization())
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    print("From MaxP-2: {}".format(model.output_shape))
-    model.add(Dense(1, activation='relu'))
-    print("Dense-1: {}".format(model.output_shape))
-    model.add(Flatten())
-    model.add(Reshape((21, 2264,)))
-    print("Reshape: {}".format(model.output_shape))
-
     return model
 
 
@@ -95,14 +64,17 @@ def split_dataset_rand(paths, labels, train_prop=0.85, test_prop=0.15, val=False
     Y = labels
     Xtrain = np.asarray([X[i] for i in training_indices])
     Ytrain = np.asarray([Y[i] for i in training_indices])
+    print("Xtrain_shape: {}".format(Xtrain.shape))
+    print("Ytrain_shape: {}".format(Ytrain.shape))
     Xtest = np.asarray([X[i] for i in testing_indices])
     Ytest = np.asarray([Y[i] for i in testing_indices])
+    print("Xtest_shape: {}".format(Xtest.shape))
+    print("Ytest_shape: {}".format(Ytest.shape))
     Xval = None
     Yval = None
     if leng > train_size+test_size and val:
         Xval = np.asarray([X[i] for i in validation_indices])
         Yval = np.asarray([labels[i] for i in validation_indices])
-        print("Training Set: {} | Testing Set: {} | Validation Set: {}".format(train_size, test_size, leng-(train_size+test_size)))
         return Xtrain, Ytrain, Xtest, Ytest, Xval, Yval
     else:
         return Xtrain, Ytrain, Xtest, Ytest
@@ -187,7 +159,7 @@ def train():
     Xtrain, Ytrain, Xtest, Ytest = split_dataset_rand(paths, labels)
 
     batch_size = 4
-    epoch = 2
+    epoch = 1
     input_shape = Xtrain[0].shape
     pad_len = len(Ytrain[0])
     num_of_class = len(dic)
@@ -202,22 +174,12 @@ def train():
                   metrics=['accuracy'])
 
     print("Training...")
-    print(Xtrain.shape)
-    print(Ytrain.shape)
+
     model.fit(x=Xtrain,
               y=Ytrain,
               verbose=1,
-              batch_size=1,
+              batch_size=batch_size,
               epochs=epoch)
-    # Manual Training
-    #for x, y in zip(Xtrain, Ytrain):
-    #    x = x[np.newaxis, :, :, :]
-    #    y = y[np.newaxis, :, :]
-    #    model.fit(x=x,
-    #              y=y,
-    #              verbose=1,
-    #              batch_size=1,
-    #              epochs=epoch)
     model.save(filepath='./model.h5')
     model.evaluate(x=Xtest,
                    y=Ytest)
